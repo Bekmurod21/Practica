@@ -28,7 +28,7 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddHttpContextAccessor();
 
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")
+    options.UseMySQL(builder.Configuration.GetConnectionString("MySqlConnection")
     ?? throw new Exception("nooo")));
 
 builder.Services.AddScoped( typeof(IRepository<>), typeof(Repository<>));
