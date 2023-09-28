@@ -1,23 +1,25 @@
-using Practic.Models;
-using Practic.Extensions;
-using Practic.Middlewares;
-using Practic.Data.DbContexts;
-using Practic.Service.Mappers;
-using Microsoft.EntityFrameworkCore;
-using Practic.Service.Service.Users;
-using System.Text.Json.Serialization;
-using Practic.Service.Interfaces.Users;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Mvc.ApplicationModels;
+using Microsoft.EntityFrameworkCore;
+using Practic.Data.DbContexts;
 using Practic.Data.IRepositories;
 using Practic.Data.Repositories;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
-using System;
-using Microsoft.Extensions.Configuration;
+using Practic.Extensions;
+using Practic.Middlewares;
+using Practic.Models;
+using Practic.Service.Interfaces.Users;
+using Practic.Service.Mappers;
+using Practic.Service.Service.Users;
+using Serilog;
+using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 
+
+//builder.Services.Configure<ForwardedHeadersOptions>(options =>
+//{
+//    options.KnownProxies.Add(IPAddress.Parse("10.0.0.100"));
+//});
 // Add services to the container.
 
 builder.Services.AddControllers();
@@ -27,11 +29,13 @@ builder.Services.AddSwaggerGen();
 
 builder.Services.AddHttpContextAccessor();
 
-builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseMySQL(builder.Configuration.GetConnectionString("MySqlConnection")
-    ?? throw new Exception("nooo")));
+builder.Services.AddDbContext<AppDbContext>(options => options
+                .UseSqlServer(builder.Configuration
+                .GetConnectionString("DefaultConnection")));
 
-builder.Services.AddScoped( typeof(IRepository<>), typeof(Repository<>));
+//builder.Services.AddDbContext<AppDbContext>();
+
+builder.Services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddAutoMapper(typeof(MapperProfile));
 
@@ -43,13 +47,27 @@ builder.Services.AddControllers(options =>
 builder.Services.AddControllersWithViews()
     .AddJsonOptions(x => x.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles);
 
+var logger = new LoggerConfiguration()
+    .ReadFrom
+    .Configuration(builder.Configuration)
+    .Enrich
+    .FromLogContext()
+    .CreateLogger();
+builder.Logging.ClearProviders();
+builder.Logging.AddSerilog(logger);
+
 var app = builder.Build();
+
+//app.UseForwardedHeaders(new ForwardedHeadersOptions
+//{
+//    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+//});
 
 app.ApplyMigrations();
 app.InitAccessor();
 
 
-if (app.Environment.IsDevelopment())
+if (app.Environment.IsDevelopment() || app.Environment.IsProduction())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
